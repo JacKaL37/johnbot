@@ -2,6 +2,7 @@ from typing import Optional, TYPE_CHECKING
 
 from fastapi import FastAPI, WebSocket
 from starlette.responses import StreamingResponse
+from starlette.websockets import WebSocketDisconnect
 
 import base64
 import json
@@ -80,6 +81,7 @@ def register_api_routes(
         )
     
     @app.websocket(CHAT_STATELESS_ENDPOINT)
+
     async def chat_stateless_endpoint(websocket: WebSocket):
         
         user_id = websocket.query_params.get('id')
@@ -91,16 +93,41 @@ def register_api_routes(
             return
         
         await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            
-            logger.info(f"Received message: {json.dumps(json.loads(data), indent=4)}")
-            
-            # chat_request = ChatRequest.parse_raw(data)
+        try:
+            while True:
+                data = await websocket.receive_text()
+                
+                logger.info(f"Received message: {json.dumps(json.loads(data), indent=4)}")
+                
+                received_data = json.loads(data)
 
-            # response = controller.get_response_from_chatbot(chat_request=chat_request)
+                logger.info(f"Context Route: {received_data['context_route']}")
 
-            await websocket.send_text(data)
+                # build up the memory
+                from langchain.memory import ConversationTokenBufferMemory
+
+                # construct the langchain dude on the fly
+                from langchain.chains import ConversationChain
+                from langchain.llms import OpenAI 
+
+                covnersation
+
+                # jam conversation into memory
+
+                # call openAI
+
+                # if we get a stream token:
+                # send stream token
+
+                stream_token = "Xx"
+                # response = controller.get_response_from_chatbot(chat_request=chat_request)
+                response = {'type': 'token', 'content': stream_token}
+
+                # else if we get a full response
+
+                await websocket.send_text(json.dumps(response))
+        except WebSocketDisconnect:
+            logger.info("WebSocket connection closed")
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

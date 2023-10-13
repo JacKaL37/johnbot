@@ -1,6 +1,11 @@
 import asyncio
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from dotenv import load_dotenv
+import os
+
 from uvicorn import Config, Server
 
 from jonbot.api_interface.api_routes import register_api_routes
@@ -23,6 +28,16 @@ async def get_or_create_fastapi_app():
     global FAST_API_APP
     if FAST_API_APP is None:
         FAST_API_APP = FastAPI()
+
+        allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
+        FAST_API_APP.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
         mongo_database = await get_mongo_database_manager()
         database_operator = get_backend_database_operator(mongo_database=mongo_database)

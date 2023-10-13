@@ -86,7 +86,7 @@ def register_api_routes(
 
             # response = controller.get_response_from_chatbot(chat_request=chat_request)
 
-            await websocket.send_text("wow" + data)
+            await websocket.send_text(data)
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

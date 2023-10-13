@@ -1,6 +1,6 @@
 from typing import Optional, TYPE_CHECKING
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
 from starlette.responses import StreamingResponse
 
 from jonbot.backend.controller.controller import Controller
@@ -28,6 +28,8 @@ UPSERT_MESSAGES_ENDPOINT = "/upsert_messages"
 UPSERT_CHATS_ENDPOINT = "/upsert_chats"
 
 GET_CONTEXT_MEMORY_ENDPOINT = "/get_context_memory"
+
+CHAT_STATELESS_ENDPOINT = "/chat_stateless"
 
 
 def register_api_routes(

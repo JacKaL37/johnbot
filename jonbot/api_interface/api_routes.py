@@ -78,15 +78,20 @@ def register_api_routes(
     
     @app.websocket(CHAT_STATELESS_ENDPOINT)
     async def chat_stateless_endpoint(websocket: WebSocket):
-        await websocket.accept()
-        while True:
-            data = await websocket.receive_text()
-            
-            # chat_request = ChatRequest.parse_raw(data)
+        
+        user_id = websocket.query_params.get('id')
+        crude_api_token = websocket.query_params.get('token')
+        
+        if crude_api_token == 'ggbotapi-1199299301957388239120':
+            await websocket.accept()
+            while True:
+                data = await websocket.receive_text()
+                
+                # chat_request = ChatRequest.parse_raw(data)
 
-            # response = controller.get_response_from_chatbot(chat_request=chat_request)
+                # response = controller.get_response_from_chatbot(chat_request=chat_request)
 
-            await websocket.send_text(data)
+                await websocket.send_text(data)
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

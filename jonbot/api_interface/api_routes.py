@@ -3,6 +3,9 @@ from typing import Optional, TYPE_CHECKING
 from fastapi import FastAPI, WebSocket
 from starlette.responses import StreamingResponse
 
+import base64
+import json
+
 from jonbot.backend.controller.controller import Controller
 from jonbot.backend.data_layer.models.conversation_models import ChatRequest
 from jonbot.backend.data_layer.models.database_request_response_models import UpsertDiscordMessagesRequest, \
@@ -81,17 +84,23 @@ def register_api_routes(
         
         user_id = websocket.query_params.get('id')
         crude_api_token = websocket.query_params.get('token')
+        decoded_crude_api_token = base64.b64decode(crude_api_token.encode()).decode()
         
-        if crude_api_token == 'ggbotapi-1199299301957388239120':
-            await websocket.accept()
-            while True:
-                data = await websocket.receive_text()
-                
-                # chat_request = ChatRequest.parse_raw(data)
+        if decoded_crude_api_token != 'ggbotapi-1199299301957388239120':
+            await websocket.close(code=1000)
+            return
+        
+        await websocket.accept()
+        while True:
+            data = await websocket.receive_text()
+            
+            logger.info(f"Received message: {json.dumps(json.loads(data), indent=4)}")
+            
+            # chat_request = ChatRequest.parse_raw(data)
 
-                # response = controller.get_response_from_chatbot(chat_request=chat_request)
+            # response = controller.get_response_from_chatbot(chat_request=chat_request)
 
-                await websocket.send_text(data)
+            await websocket.send_text(data)
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

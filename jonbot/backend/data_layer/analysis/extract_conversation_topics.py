@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from pathlib import Path
 from typing import Dict, Any
 
@@ -9,10 +8,10 @@ from langchain.callbacks import StdOutCallbackHandler
 from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationEntityMemory
 
+from jonbot import logger
 from jonbot.backend.data_layer.analysis.get_server_chats import get_chats
+from jonbot.backend.data_layer.analysis.utilities import get_human_ai_message_pairs
 from jonbot.backend.data_layer.models.discord_stuff.discord_chat_document import DiscordChatDocument
-
-logger = logging.getLogger(__name__)
 
 _DEFAULT_TOPIC_CONVERSATION_TEMPLATE = """
 
@@ -153,22 +152,6 @@ Output:"""
 TOPIC_EXTRACTION_PROMPT = PromptTemplate(
     input_variables=["history", "input"], template=_DEFAULT_TOPIC_EXTRACTION_TEMPLATE
 )
-
-
-def get_human_ai_message_pairs(chat):
-    human_ai_pairs = []
-    for message in chat.messages:
-        if message.content == "":
-            continue
-        if message.is_bot:
-            continue
-        human_message_id = message.message_id
-        for msg in chat.messages:
-            if msg.parent_message_id == human_message_id:
-                human_ai_pairs.append((message.content, msg.content))
-    logger.info(f"Extracted {len(human_ai_pairs)} human-AI pairs from {len(chat.messages)} messages.")
-
-    return human_ai_pairs
 
 
 async def extract_conversation_topics(chats: Dict[str, DiscordChatDocument],

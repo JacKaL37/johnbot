@@ -73,6 +73,18 @@ def register_api_routes(
             controller.get_response_from_chatbot(chat_request=chat_request),
             media_type="text/event-stream",
         )
+    
+    @app.websocket(CHAT_STATELESS_ENDPOINT)
+    async def chat_stateless_endpoint(websocket: WebSocket):
+        await websocket.accept()
+        while True:
+            data = await websocket.receive_text()
+            
+            # chat_request = ChatRequest.parse_raw(data)
+
+            # response = controller.get_response_from_chatbot(chat_request=chat_request)
+            
+            await websocket.send_text(response)
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

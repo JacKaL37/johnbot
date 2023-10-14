@@ -35,6 +35,16 @@ GET_CONTEXT_MEMORY_ENDPOINT = "/get_context_memory"
 
 CHAT_STATELESS_ENDPOINT = "/chat_stateless"
 
+from langchain.callbacks.base import AsyncCallbackHandler
+class StreamingPassthroughToWebsocketHandler(AsyncCallbackHandler):
+    def __init__(self, websocket, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.websocket = websocket
+
+    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        token_output = { "type": "token", "content": token}
+        await self.websocket.send_text(json.dumps(token_output))
+        super().on_llm_new_token(token, **kwargs)
 
 def register_api_routes(
         app: FastAPI,
@@ -80,8 +90,9 @@ def register_api_routes(
             media_type="text/event-stream",
         )
     
-    @app.websocket(CHAT_STATELESS_ENDPOINT)
 
+
+    @app.websocket(CHAT_STATELESS_ENDPOINT)
     async def chat_stateless_endpoint(websocket: WebSocket):
         
         user_id = websocket.query_params.get('id')
@@ -95,37 +106,79 @@ def register_api_routes(
         await websocket.accept()
         try:
             while True:
-                data = await websocket.receive_text()
+                raw = await websocket.receive_text()
                 
-                logger.info(f"Received message: {json.dumps(json.loads(data), indent=4)}")
+                logger.info(f"Received message: {json.dumps(json.loads(raw), indent=4)}")
                 
-                received_data = json.loads(data)
+                data = json.loads(raw)
 
-                logger.info(f"Context Route: {received_data['context_route']}")
+                from langchain.llms import OpenAI
+                from langchain.chat_models import ChatOpenAI 
+                from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+                
+
+                model = OpenAI(
+                    model_name=data['model_name'],
+                    temperature=data['temperature'], 
+                    streaming=True,
+                    callbacks=[
+                        StreamingPassthroughToWebsocketHandler(websocket=websocket), 
+                        StreamingStdOutCallbackHandler()
+                        ],
+                    verbose=True
+                    )
+                
+                # got streaming in, but only to the console
+
+                logger.info(f"System prompt: {data['system_prompts']}")
+
+                system_prompt = "\n\n--------\n\n" + "\n\n--------\n\n".join(data['system_prompts']) + "\n\n--------\n\n"
+
+                from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", system_prompt),
+                    MessagesPlaceholder(variable_name="history"),
+                    ("human", "{input}")
+                ])
 
                 # build up the memory
-                from langchain.memory import ConversationTokenBufferMemory
+                from langchain.memory import ConversationTokenBufferMemory, ConversationBufferWindowMemory
+                #memory = ConversationTokenBufferMemory(
+                memory = ConversationBufferWindowMemory(
+                    # llm = model,
+                    k=10,
+                    return_messages=True,
+                    # max_token_limit=4000
+                    )
+                
+                for msg in data['conversation_history']:
+                    if msg[0] == 'human':
+                        memory.chat_memory.add_user_message(msg[1])
+                    elif msg[0] == 'ai':
+                        memory.chat_memory.add_ai_message(msg[1])
 
-                # construct the langchain dude on the fly
+                logger.info(f"Memory contents: {memory.load_memory_variables({})}")
+                
                 from langchain.chains import ConversationChain
-                from langchain.llms import OpenAI 
+                chain = ConversationChain(
+                    llm=model,
+                    memory=memory,
+                    prompt=prompt,
+                    verbose=True
+                )
+                
+                
+                
+                ai_response = chain.predict(input=data["new_user_input"] + "\nAI: ")
 
-                covnersation
-
-                # jam conversation into memory
-
-                # call openAI
-
-                # if we get a stream token:
-                # send stream token
-
-                stream_token = "Xx"
+                logger.info(f"Response: {ai_response}")
+                
                 # response = controller.get_response_from_chatbot(chat_request=chat_request)
-                response = {'type': 'token', 'content': stream_token}
-
-                # else if we get a full response
+                response = {'type': 'ai_response', 'content': ai_response}
 
                 await websocket.send_text(json.dumps(response))
+
         except WebSocketDisconnect:
             logger.info("WebSocket connection closed")
 

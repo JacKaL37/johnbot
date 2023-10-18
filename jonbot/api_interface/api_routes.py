@@ -43,18 +43,14 @@ class StreamingPassthroughToWebsocketHandler(AsyncCallbackHandler):
     def __init__(self, websocket, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.websocket = websocket
-        self.token_queue = asyncio.Queue()
-        self.sem = asyncio.Semaphore(1)
 
     async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        await self.token_queue.put(token)
-        asyncio.create_task(self.send_token())
-    
-    async def send_token(self):
-        token = await self.token_queue.get()
         token_output = { "type": "token", "content": token }
-        async with self.sem:
-            asyncio.ensure_future(self.websocket.send_text(json.dumps(token_output)))
+        try:
+            await self.websocket.send_text(json.dumps(token_output))
+        except Exception as e:
+            logger.debug(f"Failed to send token: {token}, error: {str(e)}")
+        pass
 
 def register_api_routes(
         app: FastAPI,
@@ -101,7 +97,6 @@ def register_api_routes(
         )
     
 
-
     @app.websocket(CHAT_STATELESS_ENDPOINT)
     async def chat_stateless_endpoint(websocket: WebSocket):
         
@@ -132,9 +127,7 @@ def register_api_routes(
                     model_name=data['model_name'],
                     temperature=data['temperature'], 
                     streaming=True,
-                    callbacks=[
-                            StreamingPassthroughToWebsocketHandler(websocket=websocket)
-                        ],
+                    callbacks=[StreamingPassthroughToWebsocketHandler(websocket=websocket)],
                     verbose=True
                     )
                 
@@ -177,7 +170,7 @@ def register_api_routes(
                     verbose=True
                 )
                 
-                ai_response = chain.predict(input=data["new_user_input"] + "also write me ten haikus\nAI: ")
+                ai_response = await chain.apredict(input=data["new_user_input"] + "also write me ten haikus\nAI: ")
 
                 logger.info(f"Response: {ai_response}")
                 

@@ -113,7 +113,7 @@ def register_api_routes(
             while True:
                 raw = await websocket.receive_text()
                 
-                logger.info(f"Received message: {json.dumps(json.loads(raw), indent=4)}")
+                logger.info(f"Received on socket: {raw}")
                 
                 data = json.loads(raw)
 
@@ -121,21 +121,17 @@ def register_api_routes(
                 from langchain.chat_models import ChatOpenAI 
                 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
-                
-
                 model = OpenAI(
-                    model_name=data['model_name'],
-                    temperature=data['temperature'], 
+                    model_name=data['config']['model_name'],
+                    temperature=data['config']['temperature'], 
                     streaming=True,
                     callbacks=[StreamingPassthroughToWebsocketHandler(websocket=websocket)],
                     verbose=True
                     )
-                
-                # got streaming in, but only to the console
 
                 logger.info(f"System prompt: {data['system_prompts']}")
 
-                system_prompt = "\n\n--------\n\n" + "\n\n--------\n\n".join(data['system_prompts']) + "\n\n--------\n\n"
+                system_prompt = "\n\n".join(data['system_prompts']) + "\n\n--------\n\n"
 
                 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
                 prompt = ChatPromptTemplate.from_messages([
@@ -155,10 +151,10 @@ def register_api_routes(
                     )
                 
                 for msg in data['conversation_history']:
-                    if msg[0] == 'human':
-                        memory.chat_memory.add_user_message(msg[1])
-                    elif msg[0] == 'ai':
-                        memory.chat_memory.add_ai_message(msg[1])
+                    if msg["role"] == 'human':
+                        memory.chat_memory.add_user_message(msg["content"])
+                    elif msg["role"] == 'ai':
+                        memory.chat_memory.add_ai_message(msg["content"])
 
                 logger.info(f"Memory contents: {memory.load_memory_variables({})}")
                 
@@ -170,7 +166,7 @@ def register_api_routes(
                     verbose=True
                 )
                 
-                ai_response = await chain.apredict(input=data["new_user_input"] + "also write me ten haikus\nAI: ")
+                ai_response = await chain.apredict(input=data["new_user_input"] + "\nAI: ")
 
                 logger.info(f"Response: {ai_response}")
                 

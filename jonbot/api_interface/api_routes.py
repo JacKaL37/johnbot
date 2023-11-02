@@ -34,8 +34,9 @@ UPSERT_CHATS_ENDPOINT = "/upsert_chats"
 GET_CONTEXT_MEMORY_ENDPOINT = "/get_context_memory"
 
 CHAT_STATELESS_ENDPOINT = "/chat_stateless"
+FILE_DUMP_ENDPOINT = "/file_dump"
 
-from typing import Any
+from typing import Optional, TYPE_CHECKING, List, Any
 import asyncio
 from langchain.callbacks.base import AsyncCallbackHandler
 
@@ -177,6 +178,36 @@ def register_api_routes(
 
         except WebSocketDisconnect:
             logger.info("WebSocket connection closed")
+    
+    
+    @app.post("/file_dump")
+    async def file_dump_endpoint(
+        request: dict
+    ):
+        import os
+
+        try:
+            # get the blob, filename, extension, and context_path from the request
+            blob = request.get('blob')
+            filename = request.get('filename', 'default')
+            extension = request.get('extension', '.txt')
+            context_path = request.get('context_path', [])
+
+            print(blob, filename, extension, context_path)
+
+            # construct the full file path
+            file_path = '/'.join(["filedump"] + context_path + [f"{filename}{extension}"])
+
+            # ensure the context path's directories exist
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+            # write the blob to the file
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(blob)
+        except Exception as e:
+            logger.error(f"Error while handling file dump: {e}")
+
+       
 
     @app.post(UPSERT_MESSAGES_ENDPOINT)
     async def upsert_messages_endpoint(

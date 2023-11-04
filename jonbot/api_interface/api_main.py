@@ -58,8 +58,8 @@ async def run_api_async():
     config = Config(app=fastapi_app, 
                 host=HOST_NAME, 
                 port=PORT_NUMBER, 
-                ssl_keyfile='/etc/letsencrypt/live/cogmate.app/privkey.pem', 
-                ssl_certfile='/etc/letsencrypt/live/cogmate.app/fullchain.pem')
+                ssl_keyfile='/etc/letsencrypt/archive/cogmate.app/privkey.pem', 
+                ssl_certfile='/etc/letsencrypt/archive/cogmate.app/fullchain.pem')
     server = Server(config)
     logger.success(
         f"Server: {server} - {server.config} - {server.config.app} - Started on {server.config.host}:{str(server.config.port)}"
